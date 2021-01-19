@@ -60,7 +60,7 @@ permutations are compiled into the `suko` program.
 
 The program reads the clues from the command line arguments then checks 
 every grid permutation for one that satisfies the parameters, prints it,
-then exits. If `suko` finds no suitable grid it exits an error condition.
+then exits. If `suko` finds no suitable grid it exits with an error.
 
 Program runs in *O(n)* time on failure (must look at every grid) and finds a
 suko solution in average *O(n/2)* time.  On a 2014-era laptop, these times are
@@ -71,7 +71,7 @@ on its input parameters:
   * Circle clues must be between 10 and 30 inclusive (sum of four lowest numbers 1 .. 4 or four highest number 6 .. 9).
   * First color clue must be between 10 and 30 inclusive (same as Circle clues).
   * Second color clue must be between 6 and 24 inclusive (three lowest 1 .. 3 or three highest 7 .. 9).
-  * Third color clue must be between 3 and 15 inclusive.
+  * Third color clue must be between 3 and 17 inclusive.
   * Box indices must be 1 .. 9
   
  If any parameter fails these tests the program exits with an error.
