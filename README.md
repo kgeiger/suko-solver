@@ -22,12 +22,12 @@ Blank Puzzle | Solved Puzzle
 
 ## Usage
 On the command line, enter the `suko` command followed by the puzzle clues in the following order:
-> `$ suko  tl tr bl br color1 c1b1 c1b2 c1b3 c1b4 color2 c2b1 c2b2 c2b3 color3 c3b1 c3b1`
+> `$ suko  -s tl,tr,bl,br -a asum,a1,a2,a3,a4 -b bsum,b1,b2,b3 -c csum,c1,c2'
 
 That is, enter the four circle sums, then the three sets of color sums with each color sum's box numbers 
 trailing it.  From the above puzzle (argument spacing added for clarity):
 ```
-$ suko 24 27 15 25   19 5 7 8 9   19 2 3 6   7 1 4
+$ suko -s 24,27,15,25 -a 19,5,7,8,9 -b 19,2,3,6 -c 7,1,4
 5 9 3
 2 8 7
 1 4 6
@@ -36,12 +36,13 @@ $
 Accepted flags are
   - `-l`  print answer in a single line, suitable for consumption in a pipelined command stream
   - `-g`  print answer in a 3x3 grid (default)
+  - `-M`  print all grids (matrices) that match the -s clues, ignore the color clues
   - `-v`  show all input parameters before solving puzzle
   - `-h`  display help information and exit
 
 Example:
 ```
-$ suko -l 24 27 15 25   19 5 7 8 9   19 2 3 6   7 1 4
+$ suko -l -s 24,27,15,25 -a 19,5,7,8,9 -b 19,2,3,6 -c 7,1,4
 5 9 3 2 8 7 1 4 6
 $
 ```
@@ -66,15 +67,7 @@ Program runs in *O(n)* time on failure (must look at every grid) and finds a
 suko solution in average *O(n/2)* time.  On a 2014-era laptop, these times are
 about 0.012s and 0.006s, respectively.
 
-Before seaching the set of grids the program performs simple sanity checks
-on its input parameters:
-  * Circle clues must be between 10 and 30 inclusive (sum of four lowest numbers 1 .. 4 or four highest number 6 .. 9).
-  * First color clue must be between 10 and 30 inclusive (same as Circle clues).
-  * Second color clue must be between 6 and 24 inclusive (three lowest 1 .. 3 or three highest 7 .. 9).
-  * Third color clue must be between 3 and 17 inclusive.
-  * Box indices must be 1 .. 9
-  
- If any parameter fails these tests the program exits with an error.
+Before seaching the set of grids the program performs simple sanity checks.
  
 ## Implementation
  Source language: **C**
