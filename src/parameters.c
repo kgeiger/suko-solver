@@ -1,4 +1,4 @@
-/* parameters.c */
+/* parameters.c - read puzzle clues from command line parameters */
 
 /*
     suko - suko puzzle solver using brute force
@@ -17,12 +17,11 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/> * 
- 
  */
-
 
 #include <stdio.h> 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <libgen.h>
 #include <getopt.h>
 
@@ -30,280 +29,228 @@
 
 /*
  * Expected arguments are parameters that constrain the puzzle's
- * solution.  Positional parameters are, in order,
+ * solution.
  *
- * - top left, top right, bottom left, bottom right circles (box)
- *   numbers
- * - color #1 value followed by four box #s, each one 1..9
- * - color #2 value followed by three box #s, each one 1..9
- * - color #3 value, followed by two box #s, each one 1..9
+ * Invoking the program example with miminum input:
  *
- * Invoking the program example:
- *
- * suko 28 16 24 12  13 2 3 6 9  21 1 4 5  11 6 7   
- *      ^-- box --^  ^--  3 color parm sets   --^
- *
- * for a total of 16 puzzle parameters.
+ *   suko -s 28,16,24,12  -a 13,2,3,6,9  -b 21,1,4,5  -c 11,6,7   
+ *   
+ *         ^- grid circs   ^- 1st color   ^- 2nd color ^- 3rd color
  */
 
-#define PARMCOUNT 16 
+#define OPTIONS ":a:b:c:ghlMs:v"
 
-#define OPTIONS "ghlv"
+/*
+ * Input data checks/constraints and user error messages.
+ */
 
-#define USAGE_FMT "Usage: %s [flags] tl tr bl br  a a1 a2 a3 a4  b b1 b2 b3  c c1 c2\n"
-#define USAGE_KNT "Too few parameters (%d) to solve puzzle (%d needed).\n\n"
-#define BADPARM_1 "Bad top-left circle value '%d' in parameter #%d; must be from 10 .. 30.\n\n"
-#define BADPARM_2 "Bad top-right circle value '%d' in parameter #%d; must be from 10 .. 30.\n\n"
-#define BADPARM_3 "Bad bottom-left circle value '%d' in parameter #%d; must be from 10 .. 30.\n\n"
-#define BADPARM_4 "Bad bottom-right circle value '%d' in parameter #%d; must be from 10 .. 30.\n\n"
-#define BADCOLR_1 "Bad color 1 sum '%d' in parameter #%d; must be from 10 .. 30.\n\n"
-#define BADCOLR_2 "Bad color 2 sum '%d' in parameter #%d; must be from 6 .. 24.\n\n"
-#define BADCOLR_3 "Bad color 3 sum '%d' in parameter #%d; must be from 3 .. 17.\n\n"
-#define BADBOXNUM "Bad square index '%d' in parameter #%d; must be from 1 .. 9.\n\n"
+#define CIRCLEMIN 10  /* min, max for tl_sum .. br_sum */
+#define CIRCLEMAX 30  /* min is sum(1..4); max is sum(6..9) */ 
+
+#define COLORMIN   3  /* min value is sum(1..2) -- expect at least 2 boxes */
+#define COLORMAX  30  /* max value is sum(6..9) -- expect at least 4 boxes */
+#define BOXIDXMIN  1  /* lowest grid index */
+#define BOXIDXMAX  9  /* largest grid index */
+
+#define USAGE_FMT "Usage: %s [flags] -s tl,tr,bl,br  -a as,a1,a2,a3,a4  -b bs,b1,b2,b3  -c cs,c1,c2\n"
+#define USAGE_KNT "Too few clues %d to solve puzzle, %d needed.\n\n"
+#define USAGE_PRM "Bad parameter '-%c' at %d.\n\n"
+#define USAGE_BOX "Too few parameters %d for box clues, need at least %d.\n\n"
+#define BADCIRC_1 "Too few circle clues %d, total of %d needed.\n\n"
+#define BADCIRC_2 "Bad circle clue '%d' at clue #%d; must be from 10..30.\n\n"
+#define BADCOLR_1 "Bad color clue; sum '%d' at #%d; must be from 3..30.\n\n"
+#define BADBOXNUM "Bad square index '%d' in clue #%d; must be from 1 .. 9.\n\n"
 
 extern char *optarg;
 extern int  optind;
 extern int  opterr;
 extern int  optopt;
 
-static void show_clue_values (clues_t clue);
-static void bad_parameter (const char *msg, const int p, const int where);
-static void usage (const char msg[], const char *progname);
-static void help ();
+static void get_circle_clues(struct clue *p, char *digits);
+static void get_color_clues(struct color *c, char *digits);
+static void show_clue_values(struct clue p);
+static void bad_parameter(const char *msg, const int value, const int where);
+static void usage(const char msg[], const char *progname);
+static void help();
 
-
-void get_parameters (int argc, char *argv[], clues_t *clue)
+void get_parameters(int argc, char *argv[], struct clue *p)
 {
 	int  opt;
-	int  verbose= 0;
+	int  verbose= false;
 
 	while ((opt = getopt(argc, argv, OPTIONS)) != EOF) {
+
 		switch(opt) {
-			case 'g':
-				clue->gridwidth = GRID3X3;
-				break;
-			case 'l':
-				clue->gridwidth = SUKOSIZE;
-				break;
-			case 'h':
-				help();
-				break;
-			case 'v':
-				verbose= 1;
-				break;
-			case '?':
-			default:
-				usage(USAGE_FMT, basename(argv[0]));
-				break;
-				/* never reached */
-		}
-	}
+		case 'a':
+			get_color_clues(&p->a, optarg);
+			break;
+		case 'b':
+			get_color_clues(&p->b, optarg);
+			break;
+		case 'c':
+			get_color_clues(&p->c, optarg);
+			break;
+		case 'g':
+			p->gridwidth = GRID3X3;
+			break;
+		case 'l':
+			p->gridwidth = GRIDLINE;
+			break;
+		case 'h':
+			help();
+			/* never reached */
+			break;
+		case 'M':
+			p->matrixonly = true;
+			break;
+		case 's':
+			get_circle_clues(p, optarg);
+			break;
+		case 'v':
+			verbose = 1;
+			break;
+		case ':':
+			bad_parameter(USAGE_PRM, opt, optind);
+		case '?':
+		default :
+			usage(USAGE_FMT, basename(argv[0]));
+			/* never reached */
+			break;
+		} /* switch (opt) .. */
 
-	/*
-	 * We need enough clue parameters to find the answer.
-	 */
-	if ((argc - optind) < PARMCOUNT)
-		bad_parameter(USAGE_KNT, argc - optind, PARMCOUNT);
+	} /* while (opt = .. */
 
-	/*
-	 * Walk along the postional parameter list, keeping them in the clue.
-	 * Does it one at a time to afford unique error messages.
-	 *
-	 * First four are top left/right and bottom left/right circle clues.
-	 */
-	opt= atoi(argv[optind]);
-	if (between(opt, CIRCLEMIN, CIRCLEMAX))
-		clue->tl_sum= opt;
-	else
-		bad_parameter(BADPARM_1, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, CIRCLEMIN, CIRCLEMAX))
-		clue->tr_sum= opt;
-	else
-		bad_parameter(BADPARM_2, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, CIRCLEMIN, CIRCLEMAX))
-		clue->bl_sum= opt;
-	else
-		bad_parameter(BADPARM_3, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, CIRCLEMIN, CIRCLEMAX))
-		clue->br_sum= opt;
-	else
-		bad_parameter(BADPARM_4, opt, optind);
-	optind++;
-
-	/*
-	 * First color clue followed by 4 indices for squares.
-	 * Indices are -1 because array is zero-based.
-	 */
-	opt= atoi(argv[optind]);
-	if (between(opt, COLOR1MIN, COLOR1MAX))
-		clue->color1= opt;
-	else
-		bad_parameter(BADCOLR_1, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c1box1= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c1box2= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c1box3= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c1box4= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	/*
-	 * Second color clue followed by 3 indices for three squares.
-	 */
-	opt= atoi(argv[optind]);
-	if (between(opt, COLOR2MIN, COLOR2MAX))
-		clue->color2= opt;
-	else
-		bad_parameter(BADCOLR_2, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c2box1= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c2box2= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c2box3= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	/*
-	 * Third color clue followed by 2 indices for two squares.
-	 */
-	opt= atoi(argv[optind]);
-	if (between(opt, COLOR3MIN, COLOR3MAX))
-		clue->color3= opt;
-	else
-		bad_parameter(BADCOLR_3, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c3box1= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	opt= atoi(argv[optind]);
-	if (between(opt, BOXIDXMIN, BOXIDXMAX))
-		clue->c3box2= opt - 1;
-	else
-		bad_parameter(BADBOXNUM, opt, optind);
-	optind++;
-
-	/*
-	 * Show the loaded clue parameters
-	 */
 	if (verbose)
-		show_clue_values(*clue);
+		show_clue_values(*p);
 
 } /* get_parameters() */
 
+static void get_circle_clues(struct clue *p, char *numbers)
+{
+	int count = 0;
+
+	count = sscanf(numbers, "%d,%d,%d,%d",
+			&p->tl, &p->tr, &p->bl, &p->br);
+
+	if (count < 4)
+		bad_parameter(BADCIRC_1, count, 4);
+
+	if (!between(p->tl, CIRCLEMIN, CIRCLEMAX))
+		bad_parameter(BADCIRC_2, p->tl, 1);
+
+	if (!between(p->tr, CIRCLEMIN, CIRCLEMAX))
+		bad_parameter(BADCIRC_2, p->tr, 2);
+
+	if (!between(p->bl, CIRCLEMIN, CIRCLEMAX))
+		bad_parameter(BADCIRC_2, p->bl, 3);
+
+	if (!between(p->br, CIRCLEMIN, CIRCLEMAX))
+		bad_parameter(BADCIRC_2, p->br, 4);
+}
+
+static void get_color_clues(struct color *c, char *numbers)
+{
+	int i;
+	int count = 0;
+
+	count = sscanf(numbers, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+			&c->sum,
+			&c->box[0], &c->box[1], &c->box[2],
+			&c->box[3], &c->box[4], &c->box[5],
+			&c->box[6], &c->box[7], &c->box[8]);
+
+	if (count < 3)
+		bad_parameter(USAGE_BOX, count, 3);
+
+	if (! between(c->sum, COLORMIN, COLORMAX))
+		bad_parameter(BADCOLR_1, c->sum, optind);
+
+	for (i = 0; i < count-1; i++) {
+
+		if (!between(c->box[i], BOXIDXMIN, BOXIDXMAX))
+			bad_parameter(BADBOXNUM, c->box[i], i+1);
+
+		c->box[i]--;  /* zero-base index for tests later */
+	}
+}
 
 /*
- * Pretty-print of the puzzle clue's values so the user can
- * inspect entered parameters.
+ * Pretty-print of the puzzle clue's values so the user can inspect
+ * entered parameters.  Invoked when -v (verbose) requested.
  *
- * Indices (XXboxN) are adjusted +1 for display because they
- * were stored zero-based for C array.
+ * Indices (c.box[n]) are adjusted +1 for display because we
+ * stored 'em zero-based for testing the grid array.
  */
-void show_clue_values (const clues_t clue)
+static void show_color_values(const struct color c, char *name)
 {
-	fprintf (stderr, "Values for suko puzzle solution.\n\n"
+	int i;
+
+	fprintf(stderr, "Color %s values: sum=%2d, squares=", name, c.sum);
+
+	for (i= 0; 0 <= c.box[i];  i++)
+		fprintf(stderr, " %2d", c.box[i] + 1);
+
+	fprintf(stderr, "\n");
+}
+
+static void show_clue_values(const struct clue p)
+{
+	fprintf(stderr, "Values for suko puzzle solution.\n\n"
 			"Circle values:\n\n"
 			"  (%2d)  (%2d)\n"
-			"  (%2d)  (%2d)\n\n"
-			"Color 1 values: sum= %2d, squares= %2d %2d %2d %2d\n"
-			"Color 2 values: sum= %2d, squares= %2d %2d %2d\n"
-			"Color 3 values: sum= %2d, squares= %2d %2d\n\n"
-			"Suko solution (if any):\n\n",
-			clue.tl_sum, clue.tr_sum,
-			clue.bl_sum, clue.br_sum,
-			clue.color1, clue.c1box1+1, clue.c1box2+1, clue.c1box3+1, clue.c1box4+1,
-			clue.color2, clue.c2box1+1, clue.c2box2+1, clue.c2box3+1,
-			clue.color3, clue.c3box1+1, clue.c3box2+1
-		);
+			"  (%2d)  (%2d)\n\n",
+			p.tl, p.tr,
+			p.bl, p.br);
+
+	show_color_values(p.a, "a");
+	show_color_values(p.b, "b");
+	show_color_values(p.c, "c");
+
+	if (p.matrixonly)
+		fprintf(stderr, "Will display all 3x3 grids, not solution.\n\n");
+
+	fprintf(stderr, "\nSuko solution (if any):\n\n");
 }
 
-
-static void bad_parameter (const char *msg, const int p, const int where)
+/*
+ * Emit error msgs and exit.  None of these return to main().
+ */
+static void bad_parameter(const char *msg, const int value, const int where)
 {
-	fprintf (stderr, msg, p, where);
+	fprintf (stderr, msg, value, where);
+
 	usage(USAGE_FMT, PROGNAME);
-	/* never reached */
 }
 
-
-static void usage (const char *msg, const char *progname)
+static void usage(const char *msg, const char *progname)
 {
 	fprintf(stderr, msg, progname ? progname : PROGNAME);
-	exit(EXIT_FAILURE);
-	/* never reached */
-}
 
+	exit(EXIT_FAILURE);
+}
 
 static void help()
 {
 	fprintf(stderr, 
-			"\nSuko puzzle solver.\n\n"
-			"Syntax\n\n"
-			"  %s [flags] tl tr bl br  a a1 a2 a3 a4  b b1 b2 b3  c c1 c2\n\n"
-			"where tl..br are the four numbers found in the puzzle grid's circles\n"
-			"and a though c are the three collections of color constraints.  Each\n"
-			"color constraint consists of the summed number and the indexes of the\n"
-			"four, three, or two squares that add up to the sum.  Example:\n\n"
-			"  suko 28 16 24 12   13 2 3 6 8   21 1 4 5   11 6 7\n\n"
-			"In this example, '11' is the sum of the two numbers found the sixth\n"
-			"& seventh squares of the 3x3 grid as numbered from the top left corner.\n\n"
-			"Flags:\n\n"
-			"  -g  write output as a 3x3 grid (default)\n\n"
-			"  -l  write output in a line\n\n"
-			"  -v  show suko puzzle input parameters before solving\n\n"
-			"  -h  show this help.\n\n"
-			"Version: %s\n\n",
-			PROGNAME, PROGVERS);
+		"\nSuko puzzle solver.\n\n"
+		"Syntax\n\n"
+		"  %s [flags] -s tl,tr,bl,br -a as,a1,a2,a3,a4 -b bs,b1,b2,b3 -c cs,c1,c2\n\n"
+		"where tl..br are the four numbers found in the puzzle grid's circles\n"
+		"(top left, top right, bottom left, bottom right) and a though c are\n"
+	        "three collections of 'color' constraints.\n\n"
+	        "Each color constraint consists of the summed number and the indexes of the\n"
+		"squares that add up to the sum.  Example:\n\n"
+		"  %s -s 28,16,24,12  -a 13,2,3,6,8  -b 21,1,4,5 -c 11,6,7\n\n"
+		"In this example, '11' is the sum of the two numbers found the sixth and\n"
+		"seventh squares of the 3x3 grid as numbered from the top left corner.\n\n"
+		"Flags:\n\n"
+		"  -g  write output as a 3x3 grid (default)\n\n"
+		"  -l  write output as a line (useful when piping output)\n\n"
+		"  -M  show all 3x3 grids that match tl .. br. Ignores -a, -b, and -c clues\n\n"
+		"  -v  show suko puzzle input parameters before solving (verbose)\n\n"
+		"  -h  show this help and quit.\n\n"
+		"Version: %s\n\n",
+		PROGNAME, PROGNAME, PROGVERS);
 
 	exit(EXIT_FAILURE);
 }
