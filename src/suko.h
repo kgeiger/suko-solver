@@ -23,7 +23,7 @@
 #define _SUKO_H
 
 #define PROGNAME "suko"
-#define PROGVERS "0.1"
+#define PROGVERS "0.2"
 
 /* Size of 3x3 puzzle grid */
 
@@ -31,53 +31,39 @@
 #define GRID3X3  3  
 #define GRIDLINE 9
 
-
 /* handy macros here */
 
 #define between(X, LOW, HIGH) ((LOW) <= (X) && (X) <= (HIGH))
 
-/*
- * Error-checking constraints on the values of command-line puzzle
- * parameters used as the clues.
- */
-
-#define CIRCLEMIN 10  /* min, max for tl_sum .. br_sum */
-#define CIRCLEMAX 30 
-
-#define COLOR1MIN 10  /* sum 1..4 */
-#define COLOR1MAX 30  /* sum 6..9 */
-#define COLOR2MIN  6  /* sum 1..3 */
-#define COLOR2MAX 24  /* sum 7..9 */
-#define COLOR3MIN  3  /* sum 1..2 */
-#define COLOR3MAX 17  /* sum 8..9 */
-#define BOXIDXMIN  1  /* lowest grid index */
-#define BOXIDXMAX  9  /* largest grid index */
-
-
-/* Stucture to hold clues parsed from command line.
+/* 
+ * Stucture to hold clues parsed from command line.
  * If a grid satisfies these parameters it solves
  * the suko puzzle.
  */
 
-typedef struct {
-	int gridwidth;  /* output in 3x3 grid or line */
-	int tl_sum;     /* top-left thru bottom-right circles */
-	int tr_sum;
-	int bl_sum;
-	int br_sum;
-	int color1;     /* 1st color, sum of which boxen */
-	int c1box1;
-	int c1box2;
-	int c1box3;
-	int c1box4;
-	int color2;     /* 2nd color, sum of which boxen */
-	int c2box1;
-	int c2box2;
-	int c2box3;
-	int color3;     /* 3rd color, sum of which boxen */
-	int c3box1;
-	int c3box2;
-} clues_t;
+struct color {
+	int sum;
+	int box[SUKOSIZE];
+};
 
+#define _COLOR_INIT {0, {-1, -1, -1, -1, -1, -1, -1, -1, -1}}
+
+struct clue {
+	int gridwidth;        /* output in 3x3 grid or line */
+	int matrixonly;       /* when set, ignore color tests */
+	int tl, tr, bl, br;   /* top-left thru bottom-right circles */
+	struct color a;       /* 1st color, sum of which boxen */
+	struct color b;       /* 2nd color, sum of which boxen */
+	struct color c;       /* 3rd color, sum of which boxen */
+};
+
+#define _CLUES_INIT { \
+	GRID3X3, \
+	0, \
+	0, 0, 0, 0, \
+	_COLOR_INIT , \
+	_COLOR_INIT , \
+	_COLOR_INIT   \
+}
 
 #endif  /* suko.h */

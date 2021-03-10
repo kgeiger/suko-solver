@@ -23,6 +23,6 @@
 #ifndef _PARAMETERS_H
 #define _PARAMETERS_H
 
-void get_parameters (int argc, char *argv[], clues_t *clue);
+void get_parameters(int argc, char *argv[], struct clue *p);
 
 #endif  /* parameters.h */
